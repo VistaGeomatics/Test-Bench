@@ -1311,7 +1311,7 @@
   </div>
 </div>
 
-<div class="version-stamp" id="versionStamp">v4.3</div>
+<div class="version-stamp" id="versionStamp">v5</div>
 
 <!-- OFFLINE NOTE:
      Put these files beside this HTML for offline use:
@@ -4043,7 +4043,8 @@ return clone;
     if (isIOS) {
       var file = new File([blob], fileName, { type: 'application/pdf' });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: fileName });
+        // NOTE: do NOT pass title — iOS creates a ghost .txt file from it
+        await navigator.share({ files: [file] });
         return;
       }
     }
@@ -4826,22 +4827,54 @@ return clone;
           '?subject=' + subject +
           '&body=' + body;
 
-        // Save all photos to the device, then open the pre-filled email
+        // Save all photos to the device via share sheet (gives the user the
+        // "Save Image" / "Save to Files" prompt on iPad), then open the email.
         var allPhotos = bf.prePhotos.concat(bf.postPhotos);
-        allPhotos.forEach(function(p, idx) {
-          var label = idx < bf.prePhotos.length ? 'Pre' : 'Post';
-          var n = idx < bf.prePhotos.length ? (idx + 1) : (idx - bf.prePhotos.length + 1);
-          var safeLoc = (locVal || 'BF').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
-          var a = document.createElement('a');
-          a.href = p.stamped || p.dataUrl;
-          a.download = 'VistaGeomatics_' + safeLoc + '_' + label + n + '.jpg';
-          a.click();
-        });
 
-        // Open pre-filled email after photos have started saving
+        var photoSaved = false;
+
+        if (navigator.share && navigator.canShare) {
+          try {
+            var photoFiles = await Promise.all(allPhotos.map(async function(p, idx) {
+              var res  = await fetch(p.stamped || p.dataUrl);
+              var blob = await res.blob();
+              var label = idx < bf.prePhotos.length ? 'Pre' : 'Post';
+              var n = idx < bf.prePhotos.length ? (idx + 1) : (idx - bf.prePhotos.length + 1);
+              var safeLoc = (locVal || 'BF').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+              // NOTE: no title property — iOS creates a ghost .txt file from it
+              return new File([blob],
+                'VistaGeomatics_' + safeLoc + '_' + label + n + '.jpg',
+                { type: 'image/jpeg' }
+              );
+            }));
+
+            if (navigator.canShare({ files: photoFiles })) {
+              await navigator.share({ files: photoFiles });
+              photoSaved = true;
+            }
+          } catch(shareErr) {
+            if (shareErr.name !== 'AbortError') console.warn('Photo share failed:', shareErr);
+          }
+        }
+
+        // Fallback for non-iOS: download each image directly
+        if (!photoSaved) {
+          allPhotos.forEach(function(p, idx) {
+            var label = idx < bf.prePhotos.length ? 'Pre' : 'Post';
+            var n = idx < bf.prePhotos.length ? (idx + 1) : (idx - bf.prePhotos.length + 1);
+            var safeLoc = (locVal || 'BF').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+            var a = document.createElement('a');
+            a.href = p.stamped || p.dataUrl;
+            a.download = 'VistaGeomatics_' + safeLoc + '_' + label + n + '.jpg';
+            a.click();
+          });
+        }
+
+        // Open the pre-filled email — after share sheet is dismissed on iOS,
+        // or after a short delay on the fallback path
         setTimeout(function() {
           window.location.href = mailtoUrl;
-        }, 400);
+        }, photoSaved ? 300 : 600);
 
       }); // end bfSubmitBtn click
     }
