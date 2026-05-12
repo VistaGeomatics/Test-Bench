@@ -3296,49 +3296,35 @@ return clone;
 
  async function generatePdf() {
     await ensurePdfLibsLoaded();
-
     const jsPDFCtor = window.jspdf?.jsPDF || window.jsPDF;
     if (typeof jsPDFCtor !== "function") {
-      alert("Missing PDF library (jsPDF). Please check your internet connection and try again.");
+      alert("PDF library not loaded. Check your connection and try again.");
       throw new Error("jsPDF not loaded");
     }
 
-    // ── Collect all form data ────────────────────────────────────────────────
-    const v = name => (document.querySelector(`[name="${name}"]`)?.value || "").trim();
-    const id = i => (document.getElementById(i)?.value || "").trim();
+    // ── Collect form data ────────────────────────────────────────────────────
+    const v  = name => (document.querySelector(`[name="${name}"]`)?.value || "").trim();
+    const id = i    => (document.getElementById(i)?.value || "").trim();
     const cb = name => !!(document.querySelector(`input[name="${name}"]`)?.checked);
 
-    const data = {
-      developed_by:          id("developed_by"),
-      location:              id("location"),
-      date:                  id("date"),
-      start_time:            id("start_time"),
-      completion_time:       id("completion_time"),
-      job_number:            id("job_number"),
-      description:           id("description"),
-      client_name:           id("client_name"),
-      tailgate_minutes:      id("tailgate_minutes"),
-      sidewalk_yes:          cb("sidewalk_yes"),
-      sidewalk_no:           cb("sidewalk_no"),
-      fences_yes:            cb("fences_yes"),
-      fences_no:             cb("fences_no"),
-      sidewalk_comments:     id("sidewalk_comments"),
-      pic_site:              cb("pic_site"),
-      pic_sidewalk:          cb("pic_sidewalk"),
-      pic_fences:            cb("pic_fences"),
-      pic_hazards:           cb("pic_hazards"),
-      pic_other:             cb("pic_other"),
-      pic_other_desc:        v("pic_other_desc"),
-      working_alone_yes:     cb("working_alone_yes"),
-      working_alone_no:      cb("working_alone_no"),
-      check_in_interval:     id("check_in_interval"),
-      communication_method:  id("communication_method"),
+    const d = {
+      developed_by: id("developed_by"), location: id("location"),
+      date: id("date"), start_time: id("start_time"), completion_time: id("completion_time"),
+      job_number: id("job_number"), description: id("description"), client_name: id("client_name"),
+      tailgate_minutes: id("tailgate_minutes"),
+      sidewalk_yes: cb("sidewalk_yes"), sidewalk_no: cb("sidewalk_no"),
+      fences_yes: cb("fences_yes"),     fences_no:  cb("fences_no"),
+      sidewalk_comments: id("sidewalk_comments"),
+      pic_site: cb("pic_site"), pic_sidewalk: cb("pic_sidewalk"),
+      pic_fences: cb("pic_fences"), pic_hazards: cb("pic_hazards"),
+      pic_other: cb("pic_other"), pic_other_desc: v("pic_other_desc"),
+      working_alone_yes: cb("working_alone_yes"), working_alone_no: cb("working_alone_no"),
+      check_in_interval: id("check_in_interval"), communication_method: id("communication_method"),
       working_supervisor_name: id("working_supervisor_name"),
-      check_in_time:         id("check_in_time"),
-      check_out_time:        id("check_out_time"),
-      veh_tires:  cb("veh_tires"), veh_oil: cb("veh_oil"), veh_fuel: cb("veh_fuel"),
-      veh_washer: cb("veh_washer"), veh_lights: cb("veh_lights"),
-      veh_tiedowns: cb("veh_tiedowns"), veh_other: v("veh_other"),
+      check_in_time: id("check_in_time"), check_out_time: id("check_out_time"),
+      veh_tires: cb("veh_tires"), veh_oil: cb("veh_oil"), veh_fuel: cb("veh_fuel"),
+      veh_washer: cb("veh_washer"), veh_lights: cb("veh_lights"), veh_tiedowns: cb("veh_tiedowns"),
+      veh_other: v("veh_other"),
       atv_tires: cb("atv_tires"), atv_oil_fuel: cb("atv_oil_fuel"),
       atv_lights: cb("atv_lights"), atv_brakes: cb("atv_brakes"),
       gen_oil: cb("gen_oil"), gen_fuel: cb("gen_fuel"), gen_cord: cb("gen_cord"),
@@ -3346,34 +3332,29 @@ return clone;
       saw_guard: cb("saw_guard"), saw_other: v("saw_other"),
       trl_tires: cb("trl_tires"), trl_lights: cb("trl_lights"),
       trl_chains: cb("trl_chains"), trl_deck: cb("trl_deck"), trl_plate: cb("trl_plate"),
-      nearest_hospital:     id("nearest_hospital"),
-      hospital_phone:       id("hospital_phone"),
+      nearest_hospital: id("nearest_hospital"), hospital_phone: id("hospital_phone"),
       emergency_procedures: id("emergency_procedures"),
-      first_aid_available:  cb("first_aid_available"),
-      fire_ext_available:   cb("fire_ext_available"),
-      effective_comm:       cb("effective_comm"),
+      first_aid_available: cb("first_aid_available"), fire_ext_available: cb("fire_ext_available"),
+      effective_comm: cb("effective_comm"),
       pc_name: v("pc_name"), pc_date: v("pc_date"),
       sa_name: v("sa_name"), sa_date: v("sa_date"),
-      client_name_sig: v("client_name"), client_date: v("client_date"),
+      client_name_sig: id("client_name"), client_date: v("client_date"),
       crew_contact: id("crew_contact"),
     };
 
-    // PPE checkboxes — collect all checked ones
-    const ppeNames = {
+    // PPE
+    const PPE_MAP = {
       ppe_hardhat:"Hard Hat", ppe_hiviz:"Hi-Vis Vest", ppe_safety_boots:"Safety Boots",
       ppe_gloves:"Gloves", ppe_eye:"Eye Protection", ppe_hearing:"Hearing Protection",
-      ppe_sunscreen:"Sunscreen", ppe_reflective:"Reflective Vest",
-      ppe_face_shield:"Face Shield", ppe_respirator:"Respirator",
-      ppe_fall_arr:"Fall Arrest", ppe_sat_phone:"Sat Phone",
+      ppe_sunscreen:"Sunscreen", ppe_reflective:"Reflective Vest", ppe_face_shield:"Face Shield",
+      ppe_respirator:"Respirator", ppe_fall_arr:"Fall Arrest", ppe_sat_phone:"Sat Phone",
       ppe_bear_spray:"Bear Spray", ppe_first_aid:"First Aid Kit",
     };
-    const ppeChecked = Object.keys(ppeNames).filter(n => cb(n)).map(n => ppeNames[n]);
-    // Add custom PPE
+    const ppeChecked = Object.keys(PPE_MAP).filter(n => cb(n)).map(n => PPE_MAP[n]);
     const ppeOtherEl = document.querySelector('input[name="ppe_other_desc"]');
     if (cb("ppe_other") && ppeOtherEl?.value?.trim()) ppeChecked.push(ppeOtherEl.value.trim());
 
-    // Common hazards — only rows where "applies" is checked
-    // Table columns: 0=checkbox, 1=hazard name, 2=control text (no F/S/P/R columns)
+    // Common hazards
     const commonRows = [];
     document.querySelectorAll('#commonHazardsTable tbody tr').forEach(tr => {
       const applies = tr.querySelector('td:first-child input[type="checkbox"]');
@@ -3385,650 +3366,487 @@ return clone;
       });
     });
 
-    // Job-specific hazard rows
+    // Job hazards
     const jobHazards = [];
     const maxRow = getMaxJobHazardRow();
     for (let i = 1; i <= maxRow; i++) {
-      const task    = v(`task_${i}`);
-      const hazard  = v(`hazard_${i}`);
-      const f       = v(`f_${i}`);
-      const s       = v(`s_${i}`);
-      const p       = v(`p_${i}`);
-      const r       = v(`r_${i}`);
+      const task = v(`task_${i}`), hazard = v(`hazard_${i}`);
+      const f = v(`f_${i}`), s = v(`s_${i}`), p = v(`p_${i}`), r = v(`r_${i}`);
       const control = (document.querySelector(`textarea[name="control_${i}"]`)?.value || "").trim();
       if (task || hazard || control) jobHazards.push({ task, hazard, f, s, p, r, control });
     }
 
-    // Signature images — detect blank by sampling pixels, not canvas dimensions
-    function getSigDataUrl(canvasId) {
+    // Signatures — pixel-sample blank detection
+    function getSig(canvasId) {
       try {
         const c = document.getElementById(canvasId);
         if (!c) return null;
-        // Sample the canvas pixel data to see if anything was drawn
-        const ctx = c.getContext('2d');
-        const data = ctx.getImageData(0, 0, c.width, c.height).data;
-        let hasInk = false;
-        // Check every 4th pixel (alpha channel) — if any pixel is non-transparent it's signed
-        for (let i = 3; i < data.length; i += 16) {
-          if (data[i] > 10) { hasInk = true; break; }
-        }
-        if (!hasInk) return null;
-        return c.toDataURL('image/png');
+        const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        for (let i = 3; i < px.length; i += 16) { if (px[i] > 10) return c.toDataURL('image/png'); }
+        return null;
       } catch(_) { return null; }
     }
-    const sigPC     = getSigDataUrl('pcSignature');
-    const sigSA     = getSigDataUrl('saSignature');
-    const sigClient = getSigDataUrl('clientSignature');
+    const sigPC = getSig('pcSignature'), sigSA = getSig('saSignature'), sigCL = getSig('clientSignature');
 
-    // ── PDF setup ────────────────────────────────────────────────────────────
+    // ── PDF canvas ───────────────────────────────────────────────────────────
     const pdf = new jsPDFCtor("p", "mm", "letter");
-    const PW = pdf.internal.pageSize.getWidth();   // 215.9 mm
-    const PH = pdf.internal.pageSize.getHeight();  // 279.4 mm
-    const ML = 12, MR = 12, MT = 12;
-    const CW = PW - ML - MR;   // content width
-    let y = MT;
+    const PW = 215.9, PH = 279.4;
+    const L = 10, R = 10, T = 10;       // margins
+    const CW = PW - L - R;
+    let y = T;
 
-    // ── Colour palette ───────────────────────────────────────────────────────
-    const C = {
-      headerBg:    [22,  95, 125],   // --vista-blue
-      headerDark:  [11,  48,  69],   // --vista-blue-dark
-      headerLight: [42, 127, 163],   // --vista-blue-light
-      accent:      [22,  95, 125],
-      sectionBg:   [232, 240, 251],  // light blue-grey
-      sectionText: [11,  48,  69],
-      rowAlt:      [247, 250, 255],
-      rowWhite:    [255, 255, 255],
-      border:      [214, 226, 240],
-      text:        [16,  24,  39],
-      muted:       [107, 118, 128],
-      green:       [21, 128,  61],
-      yellow:      [180,  83,   9],
-      red:         [185,  28,  28],
-      severe:      [127,  29,  29],
-      white:       [255, 255, 255],
-      checkGreen:  [21, 128, 61],
+    // Palette
+    const P = {
+      navy:   [11, 48, 69],   blue:   [22, 95, 125],  blueL:  [42, 127, 163],
+      bgSec:  [228, 238, 248], bgRow:  [245, 249, 255], white:  [255, 255, 255],
+      border: [200, 218, 236], text:   [20, 28, 40],   muted:  [100, 112, 124],
+      green:  [21, 128, 61],  amber:  [161, 72, 9],   red:    [180, 28, 28],
+      severe: [120, 20, 20],
     };
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    function setFont(style, size, color) {
-      pdf.setFont("helvetica", style || "normal");
-      pdf.setFontSize(size || 9);
-      pdf.setTextColor(...(color || C.text));
-    }
-    function setFill(rgb) { pdf.setFillColor(...rgb); }
-    function setDraw(rgb) { pdf.setDrawColor(...rgb); }
-    function setLW(w)     { pdf.setLineWidth(w); }
-
-    function newPageIfNeeded(needed) {
-      if (y + needed > PH - 10) { pdf.addPage(); y = MT; return true; }
+    // ── Core helpers ─────────────────────────────────────────────────────────
+    const F = (style, sz, col) => {
+      pdf.setFont("helvetica", style);
+      pdf.setFontSize(sz);
+      pdf.setTextColor(...(col || P.text));
+    };
+    const fill  = c => pdf.setFillColor(...c);
+    const draw  = c => pdf.setDrawColor(...c);
+    const lw    = w => pdf.setLineWidth(w);
+    const rect  = (x,yy,w,h,s) => pdf.rect(x, yy, w, h, s||"F");
+    const hline = (yy, x1, x2, col, w) => {
+      draw(col||P.border); lw(w||0.2);
+      pdf.line(x1||L, yy, x2||(L+CW), yy);
+    };
+    const wrap  = (txt, maxW, sz) => {
+      pdf.setFontSize(sz||7.5);
+      return pdf.splitTextToSize(txt||"", maxW);
+    };
+    const np = needed => {
+      if (y + needed > PH - 12) { pdf.addPage(); y = T; return true; }
       return false;
-    }
+    };
 
-    function wrapText(text, maxW, fontSize) {
-      if (!text) return [""];
-      pdf.setFontSize(fontSize || 8);
-      return pdf.splitTextToSize(text, maxW);
-    }
-
-    function labelValue(label, value, x, y_, w, lineH) {
-      setFont("bold", 7, C.muted);
-      pdf.text(label.toUpperCase(), x, y_);
-      setFont("normal", 9, C.text);
-      pdf.text(value || "—", x, y_ + (lineH || 4.5));
-    }
-
-    function checkBox(checked, x, y_, size) {
-      size = size || 3.5;
-      // Draw box
-      setDraw(checked ? C.checkGreen : C.border);
-      setLW(0.4);
-      setFill(checked ? [240, 253, 244] : C.rowWhite);
-      pdf.rect(x, y_ - size + 0.5, size, size, "FD");
-      if (checked) {
-        // Draw tick mark with lines — no Unicode needed
-        setDraw(C.checkGreen); setLW(0.7);
-        const bx = x, by = y_ - size + 0.5;
-        pdf.line(bx + size*0.15, by + size*0.5,  bx + size*0.4,  by + size*0.78);
-        pdf.line(bx + size*0.4,  by + size*0.78, bx + size*0.85, by + size*0.18);
-      }
-    }
-
-    function sectionHeader(title, note) {
-      // Reserve space for header + at least one row of content (20mm)
-      // so the header never strands alone at the bottom of a page
-      newPageIfNeeded(20);
-      // Accent bar top
-      setFill(C.headerBg); setDraw(C.headerBg); setLW(0);
-      pdf.rect(ML, y, CW, 0.7, "F");
-      y += 1.2;
-      // Section background
-      setFill(C.sectionBg); setDraw(C.border); setLW(0.2);
-      pdf.rect(ML, y, CW, 6.5, "FD");
-      setFont("bold", 9.5, C.sectionText);
-      pdf.text(title.toUpperCase(), ML + 3, y + 4.5);
-      if (note) {
-        setFont("normal", 7, C.muted);
-        pdf.text(note, ML + CW - 2, y + 4.5, { align: "right" });
-      }
-      y += 8;
-    }
-
-    function drawHLine(yy, x1, x2, color, lw) {
-      setDraw(color || C.border); setLW(lw || 0.2);
-      pdf.line(x1 || ML, yy, x2 || (ML + CW), yy);
-    }
-
-    function riskColor(r) {
-      const n = parseInt(r, 10);
-      if (!r || isNaN(n)) return C.muted;
-      if (n <= 50)  return C.green;
-      if (n <= 75)  return C.yellow;
-      if (n <= 100) return C.red;
-      return C.severe;
-    }
-
-    function formatDate(s) {
+    // Format helpers
+    const fmtDate = s => {
       if (!s) return "—";
-      const d = new Date(s + "T00:00:00");
-      if (isNaN(d)) return s;
-      return d.toLocaleDateString("en-CA", { year:"numeric", month:"short", day:"numeric" });
-    }
-
-    function formatTime(s) {
+      const dd = new Date(s + "T00:00:00");
+      return isNaN(dd) ? s : dd.toLocaleDateString("en-CA", {year:"numeric",month:"short",day:"numeric"});
+    };
+    const fmtTime = s => {
       if (!s) return "—";
-      const [h, m] = s.split(":");
+      const [h,m] = s.split(":");
       if (!h) return s;
-      const hr = parseInt(h, 10);
-      const ampm = hr >= 12 ? "PM" : "AM";
-      return ((hr % 12) || 12) + ":" + m + " " + ampm;
+      const hr = parseInt(h,10);
+      return `${(hr%12)||12}:${m} ${hr>=12?"PM":"AM"}`;
+    };
+    const rCol = r => {
+      const n = parseInt(r,10);
+      if (isNaN(n)||!r) return P.muted;
+      if (n<=25) return P.green; if (n<=50) return [52,140,80];
+      if (n<=75) return P.amber; if (n<=100) return P.red;
+      return P.severe;
+    };
+
+    // ── Graphic checkbox ─────────────────────────────────────────────────────
+    // cx, cy = top-left corner; sz = side length
+    function cbox(checked, cx, cy, sz) {
+      sz = sz || 3.2;
+      draw(checked ? P.green : P.border); lw(checked ? 0.5 : 0.3);
+      fill(checked ? [236, 253, 245] : P.white);
+      rect(cx, cy, sz, sz, "FD");
+      if (checked) {
+        draw(P.green); lw(0.8);
+        // tick: short left leg + long right leg
+        pdf.line(cx + sz*0.12, cy + sz*0.52, cx + sz*0.38, cy + sz*0.80);
+        pdf.line(cx + sz*0.38, cy + sz*0.80, cx + sz*0.88, cy + sz*0.15);
+      }
     }
 
-    // ── HEADER (Page 1) ──────────────────────────────────────────────────────
-    // Dark gradient header bar
-    setFill(C.headerDark); setDraw(C.headerDark); setLW(0);
-    pdf.rect(0, 0, PW, 26, "F");
+    // ── Section header bar ───────────────────────────────────────────────────
+    function secHead(title, sub) {
+      np(22);
+      // left accent strip
+      fill(P.blue); lw(0);
+      rect(L, y, 2.5, 6, "F");
+      // header bg
+      fill(P.bgSec); draw(P.border); lw(0.2);
+      rect(L + 2.5, y, CW - 2.5, 6, "FD");
+      F("bold", 8.5, P.navy);
+      pdf.text(title.toUpperCase(), L + 6, y + 4.2);
+      if (sub) { F("normal", 6.5, P.muted); pdf.text(sub, L + CW - 1, y + 4.2, {align:"right"}); }
+      y += 7.5;
+    }
 
-    // Lighter accent strip on right
-    setFill(C.headerLight);
-    pdf.rect(PW - 60, 0, 60, 26, "F");
+    // ── label + value pair ───────────────────────────────────────────────────
+    function lv(lbl, val, x, yy, maxW) {
+      F("bold", 6, P.muted);  pdf.text(lbl.toUpperCase(), x, yy);
+      F("normal", 8, P.text); pdf.text(val||"—", x, yy + 4);
+    }
 
-    // Company name
-    setFont("bold", 16, C.white);
-    pdf.text("VISTAGEOMATICS", ML, 10);
-    setFont("normal", 8, [180, 210, 230]);
-    pdf.text("WORKSITE HAZARD ASSESSMENT & TAILGATE REPORT", ML, 15.5);
-
-    // Try to load logo
+    // ── PAGE 1 HEADER ────────────────────────────────────────────────────────
+    // Full-width navy bar
+    fill(P.navy); lw(0); rect(0, 0, PW, 20, "F");
+    // Right accent
+    fill(P.blueL); rect(PW-55, 0, 55, 20, "F");
+    // Logo
     try {
-      const logoImg = document.querySelector('.header-logo');
-      if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-        const logoCanvas = document.createElement('canvas');
-        logoCanvas.width  = logoImg.naturalWidth;
-        logoCanvas.height = logoImg.naturalHeight;
-        logoCanvas.getContext('2d').drawImage(logoImg, 0, 0);
-        const logoData = logoCanvas.toDataURL('image/png');
-        const lH = 20, lW = (logoImg.naturalWidth / logoImg.naturalHeight) * lH;
-        pdf.addImage(logoData, 'PNG', PW - lW - 3, 3, lW, lH);
+      const li = document.querySelector('.header-logo');
+      if (li && li.complete && li.naturalWidth > 0) {
+        const lc = document.createElement('canvas');
+        lc.width = li.naturalWidth; lc.height = li.naturalHeight;
+        lc.getContext('2d').drawImage(li, 0, 0);
+        const lH = 16, lW = (li.naturalWidth/li.naturalHeight)*lH;
+        pdf.addImage(lc.toDataURL('image/png'), 'PNG', PW-lW-4, 2, lW, lH);
       }
     } catch(_) {}
+    // Company name + subtitle
+    F("bold", 14, P.white); pdf.text("VISTAGEOMATICS", L+1, 9);
+    F("normal", 7, [170, 205, 225]); pdf.text("WORKSITE HAZARD ASSESSMENT & TAILGATE REPORT", L+1, 14.5);
+    // Title bar under header
+    fill([243, 247, 252]); draw(P.border); lw(0.25);
+    rect(0, 20, PW, 9, "FD");
+    F("bold", 11, P.navy); pdf.text("WORKSITE HAZARD ASSESSMENT", PW/2, 26.2, {align:"center"});
+    // Underline accent
+    fill(P.blue); lw(0); rect(PW/2-28, 28.5, 56, 0.7, "F");
+    y = 33;
 
-    // Document title bar
-    setFill([240, 246, 252]); setDraw(C.border); setLW(0.2);
-    pdf.rect(0, 26, PW, 11, "FD");
-    setFont("bold", 13, C.headerDark);
-    pdf.text("WORKSITE HAZARD ASSESSMENT", PW / 2, 33.5, { align: "center" });
+    // ── GENERAL INFORMATION ──────────────────────────────────────────────────
+    secHead("General Information");
+    // Row 1: 4 columns
+    const c4 = CW/4;
+    lv("Developed By",  d.developed_by,                    L+1,    y, c4-2);
+    lv("Location",      d.location,                        L+c4+1, y, c4-2);
+    lv("Job Number",    d.job_number,                      L+c4*2+1, y, c4-2);
+    lv("Client",        d.client_name,                     L+c4*3+1, y, c4-2);
+    y += 9;
+    lv("Date",          fmtDate(d.date),                   L+1,    y, c4-2);
+    lv("Start Time",    fmtTime(d.start_time),             L+c4+1, y, c4-2);
+    lv("End Time",      fmtTime(d.completion_time),        L+c4*2+1, y, c4-2);
+    lv("Description",   d.description,                     L+c4*3+1, y, c4-2);
+    y += 9;
+    hline(y); y += 3;
 
-    // Thin accent underline
-    setFill(C.headerBg); setLW(0);
-    pdf.rect(PW / 2 - 35, 35.5, 70, 0.8, "F");
-    y = 40;
+    // ── TAILGATE + SITE CONDITIONS (side by side) ────────────────────────────
+    secHead("Tailgate Meeting Report", "Complete daily prior to starting work");
 
-    // ── SECTION: GENERAL INFORMATION ────────────────────────────────────────
-    sectionHeader("General Information");
+    // Split into left (tailgate text) and right (site conditions)
+    const tgLW = CW * 0.58, tgRW = CW - tgLW - 3;
+    const tgRX = L + tgLW + 3;
 
-    // Row 1: Developed By | Location
-    const col2 = ML + CW / 2 + 2;
-    labelValue("Developed By", data.developed_by, ML + 2, y, CW / 2 - 4, 4.5);
-    labelValue("Location",     data.location,     col2, y, CW / 2 - 4, 4.5);
-    y += 11;
-
-    // Row 2: Date | Start Time | Completion Time
-    const col3a = ML + 2, col3b = ML + CW * 0.33 + 2, col3c = ML + CW * 0.66 + 2;
-    labelValue("Date",                 formatDate(data.date),            col3a, y, CW/3-4, 4.5);
-    labelValue("Start Time",           formatTime(data.start_time),      col3b, y, CW/3-4, 4.5);
-    labelValue("Form Completion Time", formatTime(data.completion_time), col3c, y, CW/3-4, 4.5);
-    y += 11;
-
-    // Row 3: Job Number | Description | Client
-    const q3a = ML+2, q3b = ML+CW*0.28+2, q3c = ML+CW*0.64+2;
-    labelValue("Job Number",          data.job_number,  q3a, y, CW*0.28-4, 4.5);
-    labelValue("Description of Work", data.description, q3b, y, CW*0.36-4, 4.5);
-    labelValue("Client",              data.client_name, q3c, y, CW*0.36-4, 4.5);
-    y += 13;
-
-    drawHLine(y); y += 4;
-
-    // ── SECTION: TAILGATE MEETING REPORT ────────────────────────────────────
-    sectionHeader("Tailgate Meeting Report", "Complete daily prior to starting work");
-
-    // Tailgate minutes
-    if (data.tailgate_minutes) {
-      setFont("bold", 7, C.muted);
-      pdf.text("TAILGATE MINUTES", ML + 2, y);
-      y += 4;
-      setFont("normal", 8, C.text);
-      const tgLines = wrapText(data.tailgate_minutes, CW - 4, 8);
-      const tgH = tgLines.length * 4 + 4;
-      setFill(C.rowAlt); setDraw(C.border); setLW(0.2);
-      pdf.rect(ML, y - 1, CW, tgH, "FD");
-      pdf.text(tgLines, ML + 2, y + 3);
+    // Left: tailgate minutes
+    if (d.tailgate_minutes) {
+      const tgLines = wrap(d.tailgate_minutes, tgLW - 4, 7.5);
+      const tgH = Math.max(22, tgLines.length * 4.2 + 4);
+      fill(P.bgRow); draw(P.border); lw(0.2); rect(L, y, tgLW, tgH, "FD");
+      F("normal", 7.5, P.text); pdf.text(tgLines, L+2, y+4);
+      // Right side stacked
+      const pics = [d.pic_site&&"Site", d.pic_sidewalk&&"Sidewalk",
+        d.pic_fences&&"Fences", d.pic_hazards&&"Hazards",
+        (d.pic_other&&d.pic_other_desc)&&d.pic_other_desc].filter(Boolean);
+      fill(P.bgRow); draw(P.border); lw(0.2); rect(tgRX, y, tgRW, tgH, "FD");
+      let ry = y + 4;
+      F("bold", 6, P.muted); pdf.text("SIDEWALK DRIVEN", tgRX+2, ry);
+      F("bold", 8, d.sidewalk_yes ? P.green : P.text);
+      pdf.text(d.sidewalk_yes ? "YES" : d.sidewalk_no ? "NO" : "—", tgRX+2, ry+4);
+      ry += 9;
+      F("bold", 6, P.muted); pdf.text("FENCES INSTALLED", tgRX+2, ry);
+      F("bold", 8, d.fences_yes ? P.green : P.text);
+      pdf.text(d.fences_yes ? "YES" : d.fences_no ? "NO" : "—", tgRX+2, ry+4);
+      ry += 9;
+      F("bold", 6, P.muted); pdf.text("PHOTOS TAKEN", tgRX+2, ry);
+      F("normal", 7, P.text);
+      const picStr = pics.length ? pics.join(", ") : "None";
+      const picLines = wrap(picStr, tgRW-4, 7);
+      pdf.text(picLines, tgRX+2, ry+4);
       y += tgH + 3;
+    } else {
+      // No tailgate notes — just show site conditions in a single row
+      const pics = [d.pic_site&&"Site", d.pic_sidewalk&&"Sidewalk",
+        d.pic_fences&&"Fences", d.pic_hazards&&"Hazards"].filter(Boolean);
+      const inRow = [
+        ["Sidewalk Driven", d.sidewalk_yes ? "YES" : d.sidewalk_no ? "NO" : "—"],
+        ["Fences Installed", d.fences_yes ? "YES" : d.fences_no ? "NO" : "—"],
+        ["Photos Taken", pics.join(", ")||"None"],
+      ];
+      inRow.forEach(([lbl,val],i) => lv(lbl, val, L+1+i*(CW/3), y, CW/3-2));
+      y += 9;
     }
+    hline(y); y += 3;
 
-    // Sidewalk/fencing checkboxes inline
-    setFont("bold", 7.5, C.text);
-    pdf.text("Site Sidewalk and Fencing Condition Report", ML + 2, y);
-    y += 5;
-
-    const inlineItems = [
-      ["Drove on Sidewalk:", data.sidewalk_yes ? "YES" : (data.sidewalk_no ? "NO" : "—")],
-      ["Fences Installed:",  data.fences_yes   ? "YES" : (data.fences_no  ? "NO" : "—")],
-    ];
-    inlineItems.forEach(([lbl, val], i) => {
-      const xi = ML + 2 + i * (CW / 2);
-      setFont("normal", 7.5, C.muted); pdf.text(lbl, xi, y);
-      setFont("bold", 8, val === "YES" ? C.green : val === "NO" ? C.text : C.muted);
-      pdf.text(val, xi + pdf.getTextWidth(lbl) + 2, y);
-    });
-    y += 5;
-
-    // Pictures taken
-    const pics = [
-      data.pic_site && "Site", data.pic_sidewalk && "Sidewalk",
-      data.pic_fences && "Fences", data.pic_hazards && "Hazards",
-      (data.pic_other && data.pic_other_desc) && data.pic_other_desc,
-    ].filter(Boolean);
-    setFont("bold", 7, C.muted); pdf.text("PICTURES TAKEN:", ML + 2, y);
-    setFont("normal", 8, C.text);
-    pdf.text(pics.length ? pics.join(" · ") : "None indicated", ML + 28, y);
-    y += 5;
-
-    if (data.sidewalk_comments) {
-      setFont("bold", 7, C.muted); pdf.text("COMMENTS:", ML + 2, y); y += 4;
-      setFont("normal", 8, C.text);
-      const scLines = wrapText(data.sidewalk_comments, CW - 4, 8);
-      pdf.text(scLines, ML + 2, y);
-      y += scLines.length * 4 + 2;
+    // ── WORKING ALONE + CHECK-IN ─────────────────────────────────────────────
+    secHead("Working Alone & Check-In");
+    const wa = CW/5;
+    lv("Working Alone",   d.working_alone_yes?"Yes":d.working_alone_no?"No":"—", L+1,      y, wa-2);
+    lv("Check-in Every",  d.check_in_interval,                                   L+wa+1,   y, wa-2);
+    lv("Communication",   d.communication_method,                                L+wa*2+1, y, wa-2);
+    lv("Check-in Time",   fmtTime(d.check_in_time),                             L+wa*3+1, y, wa-2);
+    lv("Check-out Time",  fmtTime(d.check_out_time),                            L+wa*4+1, y, wa-2);
+    y += 9;
+    if (d.working_supervisor_name) {
+      lv("Supervisor Name", d.working_supervisor_name, L+1, y, CW/2-2);
+      y += 9;
     }
-    y += 2; drawHLine(y); y += 4;
+    hline(y); y += 3;
 
-    // ── SECTION: WORKING ALONE & CHECK-IN ───────────────────────────────────
-    sectionHeader("Working Alone & Check-in");
-    const wa4a = ML+2, wa4b = ML+CW*0.22+2, wa4c = ML+CW*0.50+2, wa4d = ML+CW*0.75+2;
-    labelValue("Working Alone", data.working_alone_yes ? "Yes" : data.working_alone_no ? "No" : "—", wa4a, y, CW*0.22-4, 4.5);
-    labelValue("Check-in Interval",    data.check_in_interval,   wa4b, y, CW*0.28-4, 4.5);
-    labelValue("Communication Method", data.communication_method, wa4c, y, CW*0.25-4, 4.5);
-    y += 11;
-    labelValue("Supervisor Name", data.working_supervisor_name, wa4a, y, CW*0.45-4, 4.5);
-    labelValue("Check-in Time",  formatTime(data.check_in_time),  wa4b+CW*0.23, y, CW*0.25-4, 4.5);
-    labelValue("Check-out Time", formatTime(data.check_out_time), wa4d, y, CW*0.25-4, 4.5);
-    y += 13;
-    drawHLine(y); y += 4;
-
-    // ── SECTION: DAILY EQUIPMENT INSPECTION ─────────────────────────────────
-    sectionHeader("Daily Equipment Inspection");
-
-    const eqRows = [
-      { label: "Vehicle",         items: [
-        [data.veh_tires,"Tires"],[data.veh_oil,"Oil"],[data.veh_fuel,"Fuel"],
-        [data.veh_washer,"Washer Fluid"],[data.veh_lights,"Lights"],[data.veh_tiedowns,"Tie-Downs"],
-        ...(data.veh_other ? [[true, "Other: " + data.veh_other]] : [])
-      ]},
-      { label: "ATV / Snowmobile", items: [
-        [data.atv_tires,"Tires/Track"],[data.atv_oil_fuel,"Oil/Fuel"],
-        [data.atv_lights,"Lights"],[data.atv_brakes,"Brakes"],
-      ]},
-      { label: "Generator", items: [
-        [data.gen_oil,"Oil"],[data.gen_fuel,"Fuel"],[data.gen_cord,"Extension Cord"],
-      ]},
-      { label: "Chainsaw (if used)", items: [
-        [data.saw_oil,"Oil"],[data.saw_fuel,"Fuel"],[data.saw_chain,"Chain"],
-        [data.saw_guard,"Guard"],
-        ...(data.saw_other ? [[true,"Other: "+data.saw_other]] : [])
-      ]},
-      { label: "Trailer", items: [
-        [data.trl_tires,"Tires"],[data.trl_lights,"Lights"],
-        [data.trl_chains,"Safety Chains"],[data.trl_deck,"Deck"],[data.trl_plate,"Licence Plate"],
-      ]},
+    // ── EQUIPMENT INSPECTION (compact grid) ─────────────────────────────────
+    secHead("Daily Equipment Inspection");
+    const eqData = [
+      { label:"Vehicle",          items:[["Tires",d.veh_tires],["Oil",d.veh_oil],["Fuel",d.veh_fuel],["Washer Fluid",d.veh_washer],["Lights",d.veh_lights],["Tie-Downs",d.veh_tiedowns]] },
+      { label:"ATV / Snowmobile", items:[["Tires/Track",d.atv_tires],["Oil/Fuel",d.atv_oil_fuel],["Lights",d.atv_lights],["Brakes",d.atv_brakes]] },
+      { label:"Generator",        items:[["Oil",d.gen_oil],["Fuel",d.gen_fuel],["Ext. Cord",d.gen_cord]] },
+      { label:"Chainsaw",         items:[["Oil",d.saw_oil],["Fuel",d.saw_fuel],["Chain",d.saw_chain],["Guard",d.saw_guard]] },
+      { label:"Trailer",          items:[["Tires",d.trl_tires],["Lights",d.trl_lights],["Safety Chains",d.trl_chains],["Deck",d.trl_deck],["Lic. Plate",d.trl_plate]] },
     ];
-
-    const eqLW = 42, eqIW = CW - eqLW;
+    const eqLblW = 36, eqItemW = (CW - eqLblW) / 6, eqRowH = 7;
     // Header
-    setFill(C.sectionBg); setDraw(C.border); setLW(0.2);
-    pdf.rect(ML, y, eqLW, 5.5, "FD");
-    pdf.rect(ML + eqLW, y, eqIW, 5.5, "FD");
-    setFont("bold", 7.5, C.sectionText);
-    pdf.text("Equipment", ML + 2, y + 3.8);
-    pdf.text("Checked Items", ML + eqLW + 2, y + 3.8);
+    fill(P.bgSec); draw(P.border); lw(0.2);
+    rect(L, y, eqLblW, 5, "FD"); rect(L+eqLblW, y, CW-eqLblW, 5, "FD");
+    F("bold", 6.5, P.navy);
+    pdf.text("Equipment", L+2, y+3.5);
+    pdf.text("Inspection Items", L+eqLblW+2, y+3.5);
+    y += 5;
+
+    eqData.forEach((row, ri) => {
+      np(eqRowH + 1);
+      const bg = ri%2===0 ? P.white : P.bgRow;
+      fill(bg); draw(P.border); lw(0.2);
+      rect(L, y, eqLblW, eqRowH, "FD");
+      rect(L+eqLblW, y, CW-eqLblW, eqRowH, "FD");
+      F("bold", 7, P.text); pdf.text(row.label, L+2, y+4.5);
+      const perRow = 6;
+      const iw = (CW - eqLblW - 2) / perRow;
+      row.items.forEach(([lbl, chk], idx) => {
+        const ix = L + eqLblW + 2 + idx * iw;
+        const iy = y + 1.5;
+        cbox(!!chk, ix, iy, 3);
+        F("normal", 6.5, P.text);
+        pdf.text(lbl, ix+3.8, iy+2.4);
+      });
+      y += eqRowH;
+    });
+    y += 3; hline(y); y += 3;
+
+    // ── PPE ──────────────────────────────────────────────────────────────────
+    np(18);
+    secHead("Personal Protective Equipment");
+    if (ppeChecked.length === 0) {
+      F("normal", 7.5, P.muted); pdf.text("None selected", L+2, y); y += 7;
+    } else {
+      const ppePerRow = 5, ppeCW = CW / ppePerRow, ppeRowH = 6;
+      for (let i = 0; i < ppeChecked.length; i += ppePerRow) {
+        ppeChecked.slice(i, i+ppePerRow).forEach((item, j) => {
+          const xi = L + j * ppeCW;
+          cbox(true, xi+1, y+0.5, 3.2);
+          F("normal", 7.5, P.text); pdf.text(item, xi+5.8, y+3.2);
+        });
+        y += ppeRowH;
+      }
+    }
+    hline(y); y += 3;
+
+    // ── PAGE 2 ───────────────────────────────────────────────────────────────
+    pdf.addPage(); y = T;
+
+    // Thin blue top bar on page 2
+    fill(P.blue); lw(0); rect(0, 0, PW, 1.5, "F");
+    y = 5;
+
+    // ── COMMON SITE HAZARDS ──────────────────────────────────────────────────
+    if (commonRows.length > 0) {
+      secHead("Common Site Hazards");
+      const chW = CW * 0.30, ccW = CW - chW;
+      // Table header
+      fill(P.bgSec); draw(P.border); lw(0.2);
+      rect(L, y, chW, 5.5, "FD"); rect(L+chW, y, ccW, 5.5, "FD");
+      F("bold", 7, P.navy);
+      pdf.text("Hazard", L+chW/2, y+3.8, {align:"center"});
+      pdf.text("Standard Control Measures", L+chW+ccW/2, y+3.8, {align:"center"});
+      y += 5.5;
+      commonRows.forEach((row, ri) => {
+        const hLines = wrap(row.hazard,  chW-4, 7);
+        const cLines = wrap(row.control, ccW-4, 7);
+        const rh = Math.max(6, Math.max(hLines.length, cLines.length)*4+3);
+        np(rh+1);
+        fill(ri%2===0?P.white:P.bgRow); draw(P.border); lw(0.2);
+        rect(L, y, chW, rh, "FD"); rect(L+chW, y, ccW, rh, "FD");
+        F("bold", 7, P.text);   pdf.text(hLines, L+2,     y+4);
+        F("normal", 7, P.text); pdf.text(cLines, L+chW+2, y+4);
+        y += rh;
+      });
+      y += 3; hline(y); y += 3;
+    }
+
+    // ── JOB SPECIFIC HAZARDS ─────────────────────────────────────────────────
+    if (jobHazards.length > 0) {
+      np(18);
+      secHead("Job Specific Hazards");
+      const jW = { task:CW*0.16, haz:CW*0.19, f:7, s:7, p:7, r:10 };
+      jW.ctrl = CW - jW.task - jW.haz - jW.f - jW.s - jW.p - jW.r;
+      const jX = {
+        task:L, haz:L+jW.task, f:L+jW.task+jW.haz,
+        s:L+jW.task+jW.haz+jW.f, p:L+jW.task+jW.haz+jW.f+jW.s,
+        r:L+jW.task+jW.haz+jW.f+jW.s+jW.p,
+        ctrl:L+jW.task+jW.haz+jW.f+jW.s+jW.p+jW.r
+      };
+      // Header
+      fill(P.bgSec); draw(P.border); lw(0.2);
+      [["task","Task"],["haz","Hazard"],["f","F"],["s","S"],["p","P"],["r","R"],["ctrl","Control Measures"]]
+        .forEach(([k,lbl]) => {
+          rect(jX[k], y, jW[k], 5.5, "FD");
+          F("bold", 6.5, P.navy);
+          pdf.text(lbl, jX[k]+jW[k]/2, y+3.8, {align:"center"});
+        });
+      y += 5.5;
+      jobHazards.forEach((row, ri) => {
+        const tL = wrap(row.task,    jW.task-2, 7);
+        const hL = wrap(row.hazard,  jW.haz-2,  7);
+        const cL = wrap(row.control, jW.ctrl-2, 7);
+        const rh = Math.max(7, Math.max(tL.length, hL.length, cL.length)*4+3);
+        np(rh+1);
+        const rNum = parseInt(row.r,10);
+        const severe = !isNaN(rNum) && rNum >= 100;
+        fill(severe ? [255,243,243] : (ri%2===0 ? P.white : P.bgRow));
+        draw(P.border); lw(0.2);
+        [["task",jW.task],["haz",jW.haz],["f",jW.f],["s",jW.s],["p",jW.p],["r",jW.r],["ctrl",jW.ctrl]]
+          .forEach(([k,w]) => rect(jX[k], y, w, rh, "FD"));
+        if (severe) { fill(P.severe); lw(0); rect(L, y, 1.5, rh, "F"); }
+        F("normal", 7, P.text);
+        pdf.text(tL, jX.task+2, y+4); pdf.text(hL, jX.haz+2, y+4); pdf.text(cL, jX.ctrl+2, y+4);
+        F("bold", 7.5, P.navy);
+        ["f","s","p"].forEach(k => pdf.text(row[k]||"—", jX[k]+jW[k]/2, y+rh/2+1.5, {align:"center"}));
+        F("bold", 8.5, rCol(row.r));
+        pdf.text(row.r||"—", jX.r+jW.r/2, y+rh/2+1.5, {align:"center"});
+        y += rh;
+      });
+      y += 3; hline(y); y += 3;
+    }
+
+    // ── RISK LEGEND + EMERGENCY (side by side) ───────────────────────────────
+    np(45);
+    const legW = CW * 0.44, erW = CW - legW - 4;
+    const erX  = L + legW + 4;
+
+    // Legend header
+    fill(P.bgSec); draw(P.border); lw(0.2); rect(L, y, legW, 5.5, "FD");
+    F("bold", 7.5, P.navy); pdf.text("RISK RATING LEGEND  (R = F × S × P)", L+legW/2, y+3.8, {align:"center"});
+
+    // Emergency header
+    rect(erX, y, erW, 5.5, "FD");
+    F("bold", 7.5, P.navy); pdf.text("EMERGENCY RESPONSE", erX+erW/2, y+3.8, {align:"center"});
     y += 5.5;
 
-    eqRows.forEach((row, ri) => {
-      const allItems = row.items.map(([c, l]) => ({ checked: !!c, label: l }));
-      // Measure how many items fit per line at current font size
-      const itemFontSize = 7.5;
-      const itemH = 5.5; // height per item line
-      const colCount = 3; // items per row
-      const itemColW = (eqIW - 4) / colCount;
-      const rowCount = Math.ceil(allItems.length / colCount);
-      const rowH = Math.max(7, rowCount * itemH + 3);
-
-      newPageIfNeeded(rowH + 2);
-      const bg = ri % 2 === 0 ? C.rowWhite : C.rowAlt;
-      setFill(bg); setDraw(C.border); setLW(0.2);
-      pdf.rect(ML, y, eqLW, rowH, "FD");
-      pdf.rect(ML + eqLW, y, eqIW, rowH, "FD");
-
-      setFont("bold", 8, C.text);
-      pdf.text(row.label, ML + 2, y + 4.5);
-
-      allItems.forEach(({checked, label}, idx) => {
-        const col = idx % colCount;
-        const rowN = Math.floor(idx / colCount);
-        const ix = ML + eqLW + 2 + col * itemColW;
-        const iy = y + 4 + rowN * itemH;
-        const cbSize = 3;
-        checkBox(checked, ix, iy + 0.5, cbSize);
-        setFont("normal", itemFontSize, C.text);
-        pdf.text(label, ix + cbSize + 1.5, iy + 0.8);
-      });
-
-      y += rowH;
-    });
-    y += 4; drawHLine(y); y += 4;
-
-    // ── SECTION: PPE ─────────────────────────────────────────────────────────
-    newPageIfNeeded(20);
-    sectionHeader("Personal Protective Equipment");
-    if (ppeChecked.length === 0) {
-      setFont("normal", 8, C.muted); pdf.text("None selected", ML + 2, y); y += 6;
-    } else {
-      const ppePerRow = 4;
-      const ppeCW = CW / ppePerRow;
-      for (let i = 0; i < ppeChecked.length; i += ppePerRow) {
-        const rowItems = ppeChecked.slice(i, i + ppePerRow);
-        rowItems.forEach((item, j) => {
-          const xi = ML + j * ppeCW;
-          const cbSize = 3.2;
-          checkBox(true, xi + 2, y + 2.5, cbSize);
-          setFont("normal", 8, C.text);
-          pdf.text(item, xi + 2 + cbSize + 1.5, y + 2.5);
-        });
-        y += 7;
-      }
-    }
-    y += 2; drawHLine(y); y += 4;
-
-    // ── SECTION: COMMON SITE HAZARDS ─────────────────────────────────────────
-    if (commonRows.length > 0) {
-      newPageIfNeeded(18);
-      sectionHeader("Common Site Hazards");
-
-      const chHazW  = CW * 0.32;
-      const chCtrlW = CW - chHazW;
-      const chHazX  = ML;
-      const chCtrlX = ML + chHazW;
-
-      // Table header
-      const thH = 6;
-      setFill(C.sectionBg); setDraw(C.border); setLW(0.2);
-      pdf.rect(chHazX, y, chHazW, thH, "FD");
-      pdf.rect(chCtrlX, y, chCtrlW, thH, "FD");
-      setFont("bold", 7.5, C.sectionText);
-      pdf.text("Hazard", chHazX + chHazW / 2, y + 4, { align: "center" });
-      pdf.text("Standard Control Measures", chCtrlX + chCtrlW / 2, y + 4, { align: "center" });
-      y += thH;
-
-      commonRows.forEach((row, ri) => {
-        const hazLines  = wrapText(row.hazard,  chHazW  - 4, 7.5);
-        const ctrlLines = wrapText(row.control, chCtrlW - 4, 7.5);
-        const rowH = Math.max(6, Math.max(hazLines.length, ctrlLines.length) * 4 + 3);
-        newPageIfNeeded(rowH + 2);
-        const bg = ri % 2 === 0 ? C.rowWhite : C.rowAlt;
-
-        setFill(bg); setDraw(C.border); setLW(0.2);
-        pdf.rect(chHazX, y, chHazW, rowH, "FD");
-        pdf.rect(chCtrlX, y, chCtrlW, rowH, "FD");
-
-        setFont("bold", 7.5, C.text);
-        pdf.text(hazLines, chHazX + 2, y + 4);
-        setFont("normal", 7.5, C.text);
-        pdf.text(ctrlLines, chCtrlX + 2, y + 4);
-
-        y += rowH;
-      });
-      y += 4; drawHLine(y); y += 4;
-    }
-
-    // ── SECTION: JOB-SPECIFIC HAZARDS ────────────────────────────────────────
-    if (jobHazards.length > 0) {
-      newPageIfNeeded(18);
-      sectionHeader("Job Specific Hazards");
-
-      const jcW = { task: CW*0.18, haz: CW*0.22, f:8, s:8, p:8, r:11, ctrl: CW - CW*0.18 - CW*0.22 - 8 - 8 - 8 - 11 };
-      const jx = {
-        task: ML,
-        haz:  ML + jcW.task,
-        f:    ML + jcW.task + jcW.haz,
-        s:    ML + jcW.task + jcW.haz + jcW.f,
-        p:    ML + jcW.task + jcW.haz + jcW.f + jcW.s,
-        r:    ML + jcW.task + jcW.haz + jcW.f + jcW.s + jcW.p,
-        ctrl: ML + jcW.task + jcW.haz + jcW.f + jcW.s + jcW.p + jcW.r,
-      };
-
-      const jthH = 6;
-      setFill(C.sectionBg); setDraw(C.border); setLW(0.2);
-      [["task","Job Task"],["haz","Hazard"],["f","F"],["s","S"],["p","P"],["r","R"],["ctrl","Control Plan / Procedures"]]
-        .forEach(([k, lbl]) => {
-          pdf.rect(jx[k], y, jcW[k], jthH, "FD");
-          setFont("bold", 7, C.sectionText);
-          pdf.text(lbl, jx[k] + jcW[k]/2, y + 4, { align:"center" });
-        });
-      y += jthH;
-
-      jobHazards.forEach((row, ri) => {
-        const taskLines = wrapText(row.task, jcW.task - 3, 7.5);
-        const hazLines  = wrapText(row.hazard, jcW.haz - 3, 7.5);
-        const ctrlLines = wrapText(row.control, jcW.ctrl - 3, 7.5);
-        const rowH = Math.max(7, Math.max(taskLines.length, hazLines.length, ctrlLines.length) * 4 + 4);
-        newPageIfNeeded(rowH + 2);
-
-        // Severe hazard indicator
-        const rNum = parseInt(row.r, 10);
-        const isSevere = !isNaN(rNum) && rNum >= 100;
-        const bg = isSevere ? [255, 245, 245] : (ri % 2 === 0 ? C.rowWhite : C.rowAlt);
-
-        setFill(bg); setDraw(C.border); setLW(0.2);
-        [["task",jcW.task],["haz",jcW.haz],["f",jcW.f],["s",jcW.s],["p",jcW.p],["r",jcW.r],["ctrl",jcW.ctrl]]
-          .forEach(([k,w]) => pdf.rect(jx[k], y, w, rowH, "FD"));
-
-        // Left red bar on severe
-        if (isSevere) {
-          setFill(C.severe); setLW(0);
-          pdf.rect(ML, y, 1.5, rowH, "F");
-        }
-
-        setFont("normal", 7.5, C.text);
-        pdf.text(taskLines, jx.task + 2, y + 4);
-        pdf.text(hazLines,  jx.haz + 2,  y + 4);
-        pdf.text(ctrlLines, jx.ctrl + 2, y + 4);
-
-        const rCol = riskColor(row.r);
-        setFont("bold", 8, C.sectionText);
-        ["f","s","p"].forEach(k => pdf.text(row[k]||"—", jx[k]+jcW[k]/2, y+rowH/2+1.5, {align:"center"}));
-        setFont("bold", 9, rCol);
-        pdf.text(row.r||"—", jx.r+jcW.r/2, y+rowH/2+1.5, {align:"center"});
-
-        y += rowH;
-      });
-      y += 3;
-    }
-
-    // ── SECTION: RISK RATING LEGEND ──────────────────────────────────────────
-    newPageIfNeeded(48);
-    sectionHeader("Risk Rating Legend", "R = F × S × P");
-
-    const legendCols = [
-      { title: "Frequency (F)",      rows: [["1","Never"],["2","Yearly"],["3","Monthly"],["4","Weekly"],["5","Daily"]] },
-      { title: "Severity (S)",       rows: [["1","No injury"],["2","Minor injury"],["3","Serious, medical aid"],["4","Lost time"],["5","Fatality"]] },
-      { title: "Probability (P)",    rows: [["1","Very unlikely"],["2","Unlikely"],["3","Possible"],["4","Significantly likely"],["5","Certainty"]] },
-      { title: "Risk Category (R)",  rows: [["0–25","Low"],["26–50","Moderate"],["51–75","Mod. High"],["76–100","High"],["100–125","SEVERE"]] },
+    const legSY = y;
+    const LEGEND = [
+      { title:"Freq (F)", rows:[["1","Never"],["2","Yearly"],["3","Monthly"],["4","Weekly"],["5","Daily"]] },
+      { title:"Severity (S)", rows:[["1","No injury"],["2","Minor"],["3","Medical aid"],["4","Lost time"],["5","Fatality"]] },
+      { title:"Prob (P)", rows:[["1","Very unlikely"],["2","Unlikely"],["3","Possible"],["4","Likely"],["5","Certain"]] },
+      { title:"Risk (R)", rows:[["1–25","Low"],["26–50","Moderate"],["51–75","Mod. High"],["76–100","High"],["101+","SEVERE"]] },
     ];
-
-    const legCW = CW / 4;
-    legendCols.forEach((col, ci) => {
-      const lx = ML + ci * legCW;
-      setFill(C.sectionBg); setDraw(C.border); setLW(0.2);
-      pdf.rect(lx, y, legCW, 5.5, "FD");
-      setFont("bold", 7, C.sectionText);
-      pdf.text(col.title, lx + legCW/2, y + 3.8, { align:"center" });
-      col.rows.forEach(([num, lbl], ri) => {
-        const ry = y + 5.5 + ri * 5;
-        const rbg = ri % 2 === 0 ? C.rowWhite : C.rowAlt;
-        setFill(rbg); setDraw(C.border); setLW(0.2);
-        pdf.rect(lx, ry, legCW, 5, "FD");
-        setFill(C.sectionBg);
-        pdf.rect(lx, ry, 12, 5, "FD");
-        setFont("bold", 7.5, C.sectionText);
-        pdf.text(num, lx + 6, ry + 3.5, { align:"center" });
-        // Risk category colours for the last column
-        let textColor = C.text;
-        if (ci === 3) {
-          if (lbl === "Low") textColor = C.green;
-          else if (lbl === "Moderate") textColor = [52, 120, 180];
-          else if (lbl === "Mod. High") textColor = C.yellow;
-          else if (lbl === "High") textColor = C.red;
-          else if (lbl === "SEVERE") { textColor = C.severe; }
+    const lcw = legW / LEGEND.length;
+    LEGEND.forEach((col, ci) => {
+      const lx = L + ci * lcw;
+      fill(P.bgSec); draw(P.border); lw(0.2); rect(lx, legSY, lcw, 4.5, "FD");
+      F("bold", 6, P.navy); pdf.text(col.title, lx+lcw/2, legSY+3.2, {align:"center"});
+      col.rows.forEach(([num,lbl],ri) => {
+        const ry2 = legSY + 4.5 + ri*4.8;
+        fill(ri%2===0?P.white:P.bgRow); draw(P.border); lw(0.15); rect(lx, ry2, lcw, 4.8, "FD");
+        fill(P.bgSec); rect(lx, ry2, 10, 4.8, "FD");
+        F("bold", 6, P.navy); pdf.text(num, lx+5, ry2+3.3, {align:"center"});
+        let tc = P.text;
+        if (ci===3) {
+          if(lbl==="Low") tc=P.green; else if(lbl==="Moderate") tc=[52,140,80];
+          else if(lbl==="Mod. High") tc=P.amber; else if(lbl==="High") tc=P.red;
+          else if(lbl==="SEVERE") tc=P.severe;
         }
-        setFont(ci === 3 ? "bold" : "normal", 7.5, textColor);
-        pdf.text(lbl, lx + 14, ry + 3.5);
+        F(ci===3?"bold":"normal", 6, tc); pdf.text(lbl, lx+11.5, ry2+3.3);
       });
     });
-    y += 5.5 + legendCols[0].rows.length * 5 + 5;
-    drawHLine(y); y += 4;
+    const legEndY = legSY + 4.5 + LEGEND[0].rows.length * 4.8;
 
-    // ── SECTION: EMERGENCY RESPONSE PLAN ────────────────────────────────────
-    newPageIfNeeded(30);
-    sectionHeader("Emergency Response Plan");
-
-    labelValue("Nearest First Aid / Hospital", data.nearest_hospital, ML + 2, y, CW / 2 - 4, 4.5);
-    labelValue("Phone #", data.hospital_phone, col2, y, CW / 2 - 4, 4.5);
-    y += 11;
-
-    if (data.emergency_procedures) {
-      setFont("bold", 7, C.muted); pdf.text("EMERGENCY RESPONSE PROCEDURES", ML + 2, y); y += 4;
-      const epLines = wrapText(data.emergency_procedures, CW - 4, 8);
-      const epH = epLines.length * 4 + 4;
-      newPageIfNeeded(epH + 4);
-      setFill(C.rowAlt); setDraw(C.border); setLW(0.2);
-      pdf.rect(ML, y - 1, CW, epH, "FD");
-      setFont("normal", 8, C.text);
-      pdf.text(epLines, ML + 2, y + 3);
-      y += epH + 2;
+    // Emergency content (right side, same y band)
+    let ey = legSY;
+    // Hospital + phone inline
+    lv("Nearest Hospital / First Aid", d.nearest_hospital, erX+1, ey, erW*0.65-2);
+    lv("Phone", d.hospital_phone, erX+erW*0.65+1, ey, erW*0.35-2);
+    ey += 9;
+    if (d.emergency_procedures) {
+      const epL = wrap(d.emergency_procedures, erW-4, 6.5);
+      const epH = epL.length * 3.8 + 3;
+      fill(P.bgRow); draw(P.border); lw(0.15); rect(erX, ey, erW, epH, "FD");
+      F("normal", 6.5, P.text); pdf.text(epL, erX+2, ey+3);
+      ey += epH + 2;
     }
-
-    const erChecks = [
-      [data.first_aid_available, "First Aid Kit Available"],
-      [data.fire_ext_available,  "Fire Extinguisher Available"],
-      [data.effective_comm,      "Effective Method of Communication Available"],
+    // Emergency checkboxes
+    const erItems = [
+      [d.first_aid_available, "First Aid Kit"],
+      [d.fire_ext_available,  "Fire Extinguisher"],
+      [d.effective_comm,      "Communication Method"],
     ];
-    const erColW = CW / 3;
-    erChecks.forEach(([checked, label], i) => {
-      const xi = ML + i * erColW;
-      const cbSize = 3.2;
-      checkBox(checked, xi + 2, y + 2.5, cbSize);
-      setFont("normal", 8, C.text);
-      const lblLines = wrapText(label, erColW - cbSize - 7, 8);
-      pdf.text(lblLines, xi + 2 + cbSize + 1.5, y + 2.5);
+    erItems.forEach(([chk, lbl], i) => {
+      cbox(!!chk, erX+1, ey+0.5, 3);
+      F("normal", 6.5, P.text); pdf.text(lbl, erX+5.5, ey+3);
+      ey += 5.5;
     });
-    y += 9; drawHLine(y); y += 5;
 
-    // ── SECTION: ACKNOWLEDGEMENT & SIGN-OFF ─────────────────────────────────
-    newPageIfNeeded(52);
-    sectionHeader("Acknowledgement & Sign-off");
+    y = Math.max(legEndY, ey) + 4;
+    hline(y); y += 4;
 
-    const sigBoxW = CW / 3 - 3;
-    const sigBoxH = 35;
+    // ── SIGN-OFF ─────────────────────────────────────────────────────────────
+    np(42);
+    secHead("Acknowledgement & Sign-Off");
+
+    const sbW = CW/3 - 2, sbH = 30;
     const sigs = [
-      { label: "Party Chief – Signature", img: sigPC,     name: data.pc_name, date: formatDate(data.pc_date) },
-      { label: "Rodman – Signature",      img: sigSA,     name: data.sa_name, date: formatDate(data.sa_date) },
-      { label: "Client / Safety Rep",     img: sigClient, name: data.client_name_sig, date: formatDate(data.client_date) },
+      { lbl:"Party Chief",    img:sigPC, name:d.pc_name,         date:fmtDate(d.pc_date) },
+      { lbl:"Rodman / Helper",img:sigSA, name:d.sa_name,         date:fmtDate(d.sa_date) },
+      { lbl:"Client / Safety Rep", img:sigCL, name:d.client_name_sig, date:fmtDate(d.client_date) },
     ];
-
     sigs.forEach((sig, i) => {
-      const sx = ML + i * (sigBoxW + 3);
-      // Box border
-      setFill(C.rowWhite); setDraw(C.border); setLW(0.3);
-      pdf.rect(sx, y, sigBoxW, sigBoxH, "FD");
-      // Label
-      setFont("bold", 7, C.muted);
-      pdf.text(sig.label, sx + 2, y + 4);
-      // Signature image or placeholder
-      const sigAreaY = y + 6;
-      const sigAreaH = 18;
-      setFill(C.rowAlt); setDraw(C.border); setLW(0.2);
-      pdf.rect(sx + 2, sigAreaY, sigBoxW - 4, sigAreaH, "FD");
+      const sx = L + i*(sbW+3);
+      // Outer box
+      fill(P.white); draw(P.border); lw(0.3); rect(sx, y, sbW, sbH, "FD");
+      // Label strip
+      fill(P.bgSec); lw(0); rect(sx, y, sbW, 5, "F");
+      F("bold", 7, P.navy); pdf.text(sig.lbl, sx+sbW/2, y+3.5, {align:"center"});
+      // Sig area
+      const saY = y+5, saH = 15;
+      fill(P.bgRow); draw(P.border); lw(0.15); rect(sx+1, saY, sbW-2, saH, "FD");
       if (sig.img) {
-        try { pdf.addImage(sig.img, "PNG", sx + 2, sigAreaY, sigBoxW - 4, sigAreaH); } catch(_) {}
-      } else {
-        setFont("normal", 7, C.muted);
-        pdf.text("(signature)", sx + sigBoxW / 2, sigAreaY + sigAreaH / 2, { align:"center" });
+        try { pdf.addImage(sig.img, "PNG", sx+1, saY, sbW-2, saH); } catch(_) {}
       }
-      // Name and date below
-      const nameY = sigAreaY + sigAreaH + 4;
-      setDraw(C.border); setLW(0.2);
-      pdf.line(sx + 2, nameY, sx + sigBoxW - 2, nameY);
-      setFont("normal", 7.5, C.text);
-      pdf.text(sig.name || "", sx + 2, nameY + 3.5);
-      setFont("bold", 7, C.muted);
-      pdf.text("NAME", sx + 2, nameY + 6.5);
-      pdf.line(sx + 2, nameY + 8, sx + sigBoxW - 2, nameY + 8);
-      setFont("normal", 7.5, C.text);
-      pdf.text(sig.date || "", sx + 2, nameY + 11.5);
-      setFont("bold", 7, C.muted);
-      pdf.text("DATE", sx + 2, nameY + 14);
+      // Name / date lines
+      const nY = saY+saH+2;
+      hline(nY+4, sx+1, sx+sbW-1, P.border, 0.2);
+      F("normal", 7, P.text); pdf.text(sig.name||"", sx+2, nY+3.5);
+      F("bold", 5.5, P.muted); pdf.text("NAME", sx+2, nY+6.5);
+      hline(nY+11, sx+1, sx+sbW-1, P.border, 0.2);
+      F("normal", 7, P.text); pdf.text(sig.date||"", sx+2, nY+10);
+      F("bold", 5.5, P.muted); pdf.text("DATE", sx+2, nY+13);
     });
-    y += sigBoxH + 5;
+    y += sbH + 4;
 
-    // Crew contact
-    if (data.crew_contact) {
-      labelValue("Crew Contact No.", data.crew_contact, ML + 2, y, CW / 3, 4.5);
-      y += 11;
+    if (d.crew_contact) {
+      lv("Crew Contact", d.crew_contact, L+1, y, CW/3);
+      y += 9;
     }
 
-    // ── FOOTER on every page ─────────────────────────────────────────────────
-    const totalPages = pdf.internal.getNumberOfPages();
-    for (let pg = 1; pg <= totalPages; pg++) {
+    // ── FOOTER every page ────────────────────────────────────────────────────
+    const total = pdf.internal.getNumberOfPages();
+    for (let pg = 1; pg <= total; pg++) {
       pdf.setPage(pg);
-      // Bottom rule
-      setDraw(C.border); setLW(0.3);
-      pdf.line(ML, PH - 9, PW - MR, PH - 9);
-      // Left: company
-      setFont("normal", 6.5, C.muted);
-      pdf.text("VistaGeomatics — Worksite Hazard Assessment", ML, PH - 5.5);
-      // Centre: job/date
-      const cInfo = [data.job_number && ("Job: " + data.job_number), formatDate(data.date)].filter(Boolean).join(" · ");
-      pdf.text(cInfo, PW / 2, PH - 5.5, { align:"center" });
-      // Right: page numbers
-      pdf.text("Page " + pg + " of " + totalPages, PW - MR, PH - 5.5, { align:"right" });
-      // Thin top accent on page 2+
-      if (pg > 1) {
-        setFill(C.headerBg); setLW(0);
-        pdf.rect(0, 0, PW, 1.5, "F");
-      }
+      hline(PH-9, L, L+CW, P.border, 0.25);
+      F("normal", 6, P.muted);
+      pdf.text("VistaGeomatics  |  Worksite Hazard Assessment", L, PH-5.5);
+      const ctr = [d.job_number && "Job: "+d.job_number, fmtDate(d.date)].filter(Boolean).join("  ·  ");
+      pdf.text(ctr, PW/2, PH-5.5, {align:"center"});
+      pdf.text("Page "+pg+" of "+total, PW-R, PH-5.5, {align:"right"});
     }
 
     return pdf;
   }
+
+
 
   // ── iOS/iPadOS detection ──────────────────────────────────────
   // navigator.share exists on PC Chrome too but behaves differently there.
