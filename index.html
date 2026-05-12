@@ -3489,15 +3489,19 @@ return clone;
     fill(P.navy); lw(0); rect(0, 0, PW, 20, "F");
     // Right accent
     fill(P.blueL); rect(PW-55, 0, 55, 20, "F");
-    // Logo
+    // Logo — downsample to max 120px tall to keep file size small
     try {
       const li = document.querySelector('.header-logo');
       if (li && li.complete && li.naturalWidth > 0) {
-        const lc = document.createElement('canvas');
-        lc.width = li.naturalWidth; lc.height = li.naturalHeight;
-        lc.getContext('2d').drawImage(li, 0, 0);
-        const lH = 16, lW = (li.naturalWidth/li.naturalHeight)*lH;
-        pdf.addImage(lc.toDataURL('image/png'), 'PNG', PW-lW-4, 2, lW, lH);
+        const MAX_PX = 120;
+        const scale  = Math.min(1, MAX_PX / li.naturalHeight);
+        const lc     = document.createElement('canvas');
+        lc.width  = Math.round(li.naturalWidth  * scale);
+        lc.height = Math.round(li.naturalHeight * scale);
+        lc.getContext('2d').drawImage(li, 0, 0, lc.width, lc.height);
+        const lH = 16, lW = (lc.width / lc.height) * lH;
+        // JPEG at 0.7 quality — tiny file, fine for a logo at 16mm tall
+        pdf.addImage(lc.toDataURL('image/jpeg', 0.70), 'JPEG', PW-lW-4, 2, lW, lH);
       }
     } catch(_) {}
     // Company name + subtitle
@@ -3513,17 +3517,53 @@ return clone;
 
     // ── GENERAL INFORMATION ──────────────────────────────────────────────────
     secHead("General Information");
-    // Row 1: 4 columns
-    const c4 = CW/4;
-    lv("Developed By",  d.developed_by,                    L+1,    y, c4-2);
-    lv("Location",      d.location,                        L+c4+1, y, c4-2);
-    lv("Job Number",    d.job_number,                      L+c4*2+1, y, c4-2);
-    lv("Client",        d.client_name,                     L+c4*3+1, y, c4-2);
+
+    // Helper: truncate a value to fit inside maxW at given font size
+    function fitVal(val, maxW, sz) {
+      if (!val) return "—";
+      pdf.setFontSize(sz || 8);
+      if (pdf.getTextWidth(val) <= maxW) return val;
+      // trim until it fits with ellipsis
+      let s = val;
+      while (s.length > 1 && pdf.getTextWidth(s + "…") > maxW) s = s.slice(0, -1);
+      return s + "…";
+    }
+
+    // Row 1: 4 equal columns — leave 3mm padding each side
+    const c4 = CW / 4;
+    const cPad = 3; // inner left padding per cell
+    const cMax = c4 - cPad - 1; // max text width per cell
+
+    // Label row
+    F("bold", 6, P.muted);
+    pdf.text("DEVELOPED BY",  L + cPad,          y);
+    pdf.text("LOCATION",      L + c4 + cPad,     y);
+    pdf.text("JOB NUMBER",    L + c4*2 + cPad,   y);
+    pdf.text("CLIENT",        L + c4*3 + cPad,   y);
+    // Value row
+    F("normal", 8, P.text);
+    pdf.text(fitVal(d.developed_by, cMax, 8), L + cPad,        y + 4);
+    pdf.text(fitVal(d.location,     cMax, 8), L + c4 + cPad,   y + 4);
+    pdf.text(fitVal(d.job_number,   cMax, 8), L + c4*2 + cPad, y + 4);
+    pdf.text(fitVal(d.client_name,  cMax, 8), L + c4*3 + cPad, y + 4);
+    // Vertical dividers
+    draw(P.border); lw(0.15);
+    [1,2,3].forEach(i => pdf.line(L + c4*i, y-2, L + c4*i, y+6));
     y += 9;
-    lv("Date",          fmtDate(d.date),                   L+1,    y, c4-2);
-    lv("Start Time",    fmtTime(d.start_time),             L+c4+1, y, c4-2);
-    lv("End Time",      fmtTime(d.completion_time),        L+c4*2+1, y, c4-2);
-    lv("Description",   d.description,                     L+c4*3+1, y, c4-2);
+
+    // Row 2
+    F("bold", 6, P.muted);
+    pdf.text("DATE",         L + cPad,          y);
+    pdf.text("START TIME",   L + c4 + cPad,     y);
+    pdf.text("END TIME",     L + c4*2 + cPad,   y);
+    pdf.text("DESCRIPTION",  L + c4*3 + cPad,   y);
+    F("normal", 8, P.text);
+    pdf.text(fitVal(fmtDate(d.date),           cMax, 8), L + cPad,        y + 4);
+    pdf.text(fitVal(fmtTime(d.start_time),     cMax, 8), L + c4 + cPad,   y + 4);
+    pdf.text(fitVal(fmtTime(d.completion_time),cMax, 8), L + c4*2 + cPad, y + 4);
+    pdf.text(fitVal(d.description,             cMax, 8), L + c4*3 + cPad, y + 4);
+    draw(P.border); lw(0.15);
+    [1,2,3].forEach(i => pdf.line(L + c4*i, y-2, L + c4*i, y+6));
     y += 9;
     hline(y); y += 3;
 
@@ -3557,7 +3597,8 @@ return clone;
       F("bold", 6, P.muted); pdf.text("PHOTOS TAKEN", tgRX+2, ry);
       F("normal", 7, P.text);
       const picStr = pics.length ? pics.join(", ") : "None";
-      const picLines = wrap(picStr, tgRW-4, 7);
+      // wrap to fit inside the right panel — use tgRW minus padding
+      const picLines = wrap(picStr, tgRW - 5, 7);
       pdf.text(picLines, tgRX+2, ry+4);
       y += tgH + 3;
     } else {
@@ -3727,13 +3768,14 @@ return clone;
     const legW = CW * 0.44, erW = CW - legW - 4;
     const erX  = L + legW + 4;
 
-    // Legend header
-    fill(P.bgSec); draw(P.border); lw(0.2); rect(L, y, legW, 5.5, "FD");
-    F("bold", 7.5, P.navy); pdf.text("RISK RATING LEGEND  (R = F × S × P)", L+legW/2, y+3.8, {align:"center"});
+    // Legend header — blue accent strip + light bg
+    fill(P.blue); lw(0); rect(L, y, 2.5, 5.5, "F");
+    fill(P.bgSec); draw(P.border); lw(0.2); rect(L+2.5, y, legW-2.5, 5.5, "FD");
+    F("bold", 7.5, P.navy); pdf.text("RISK RATING LEGEND  (R = F × S × P)", L+legW/2+1, y+3.8, {align:"center"});
 
-    // Emergency header
-    rect(erX, y, erW, 5.5, "FD");
-    F("bold", 7.5, P.navy); pdf.text("EMERGENCY RESPONSE", erX+erW/2, y+3.8, {align:"center"});
+    // Emergency header — navy background, white text so it's readable
+    fill(P.navy); lw(0); rect(erX, y, erW, 5.5, "F");
+    F("bold", 7.5, P.white); pdf.text("EMERGENCY RESPONSE PLAN", erX + erW/2, y+3.8, {align:"center"});
     y += 5.5;
 
     const legSY = y;
@@ -3765,11 +3807,13 @@ return clone;
     const legEndY = legSY + 4.5 + LEGEND[0].rows.length * 4.8;
 
     // Emergency content (right side, same y band)
-    let ey = legSY;
-    // Hospital + phone inline
-    lv("Nearest Hospital / First Aid", d.nearest_hospital, erX+1, ey, erW*0.65-2);
-    lv("Phone", d.hospital_phone, erX+erW*0.65+1, ey, erW*0.35-2);
-    ey += 9;
+    let ey = legSY + 2;
+    // Hospital + phone inline — use P.muted for labels so they're visible on white bg
+    F("bold", 6, P.muted); pdf.text("NEAREST HOSPITAL / FIRST AID", erX+1, ey);
+    F("normal", 8, P.text); pdf.text(d.nearest_hospital||"—", erX+1, ey+4);
+    F("bold", 6, P.muted); pdf.text("PHONE", erX+erW*0.62+1, ey);
+    F("normal", 8, P.text); pdf.text(d.hospital_phone||"—", erX+erW*0.62+1, ey+4);
+    ey += 10;
     if (d.emergency_procedures) {
       const epL = wrap(d.emergency_procedures, erW-4, 6.5);
       const epH = epL.length * 3.8 + 3;
