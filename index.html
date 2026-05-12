@@ -1311,7 +1311,7 @@
   </div>
 </div>
 
-<div class="version-stamp" id="versionStamp">v5.1</div>
+<div class="version-stamp" id="versionStamp">v5.2</div>
 
 <!-- OFFLINE NOTE:
      Put these files beside this HTML for offline use:
@@ -3468,14 +3468,14 @@ return clone;
       np(22);
       // left accent strip
       fill(P.blue); lw(0);
-      rect(L, y, 2.5, 6, "F");
+      rect(L, y, 2.5, 6.5, "F");
       // header bg
       fill(P.bgSec); draw(P.border); lw(0.2);
-      rect(L + 2.5, y, CW - 2.5, 6, "FD");
+      rect(L + 2.5, y, CW - 2.5, 6.5, "FD");
       F("bold", 8.5, P.navy);
-      pdf.text(title.toUpperCase(), L + 6, y + 4.2);
-      if (sub) { F("normal", 6.5, P.muted); pdf.text(sub, L + CW - 1, y + 4.2, {align:"right"}); }
-      y += 7.5;
+      pdf.text(title.toUpperCase(), L + 7, y + 4.6);
+      if (sub) { F("normal", 6.5, P.muted); pdf.text(sub, L + CW - 1, y + 4.6, {align:"right"}); }
+      y += 9;   // header height (6.5) + 2.5 gap before first content line
     }
 
     // ── label + value pair ───────────────────────────────────────────────────
@@ -3489,7 +3489,7 @@ return clone;
     fill(P.navy); lw(0); rect(0, 0, PW, 20, "F");
     // Right accent
     fill(P.blueL); rect(PW-55, 0, 55, 20, "F");
-    // Logo — downsample to max 120px tall to keep file size small
+    // Logo — downsample and composite onto navy background to preserve transparency
     try {
       const li = document.querySelector('.header-logo');
       if (li && li.complete && li.naturalWidth > 0) {
@@ -3498,10 +3498,14 @@ return clone;
         const lc     = document.createElement('canvas');
         lc.width  = Math.round(li.naturalWidth  * scale);
         lc.height = Math.round(li.naturalHeight * scale);
-        lc.getContext('2d').drawImage(li, 0, 0, lc.width, lc.height);
-        const lH = 16, lW = (lc.width / lc.height) * lH;
-        // JPEG at 0.7 quality — tiny file, fine for a logo at 16mm tall
-        pdf.addImage(lc.toDataURL('image/jpeg', 0.70), 'JPEG', PW-lW-4, 2, lW, lH);
+        const ctx = lc.getContext('2d');
+        // Fill with the header accent colour so transparent areas blend in
+        ctx.fillStyle = '#2a7fa3';
+        ctx.fillRect(0, 0, lc.width, lc.height);
+        ctx.drawImage(li, 0, 0, lc.width, lc.height);
+        const lH = 15, lW = (lc.width / lc.height) * lH;
+        // PNG preserves the blended result without artefacts
+        pdf.addImage(lc.toDataURL('image/png'), 'PNG', PW - lW - 3, 2.5, lW, lH);
       }
     } catch(_) {}
     // Company name + subtitle
@@ -3668,21 +3672,34 @@ return clone;
     });
     y += 3; hline(y); y += 3;
 
-    // ── PPE ──────────────────────────────────────────────────────────────────
+    // ── PPE ── always show full list, checked or unchecked ───────────────────
     np(18);
     secHead("Personal Protective Equipment");
-    if (ppeChecked.length === 0) {
-      F("normal", 7.5, P.muted); pdf.text("None selected", L+2, y); y += 7;
-    } else {
-      const ppePerRow = 5, ppeCW = CW / ppePerRow, ppeRowH = 6;
-      for (let i = 0; i < ppeChecked.length; i += ppePerRow) {
-        ppeChecked.slice(i, i+ppePerRow).forEach((item, j) => {
-          const xi = L + j * ppeCW;
-          cbox(true, xi+1, y+0.5, 3.2);
-          F("normal", 7.5, P.text); pdf.text(item, xi+5.8, y+3.2);
-        });
-        y += ppeRowH;
-      }
+    const ALL_PPE = [
+      ["ppe_hardhat","Hard Hat"], ["ppe_hiviz","Hi-Vis Vest"], ["ppe_safety_boots","Safety Boots"],
+      ["ppe_gloves","Gloves"], ["ppe_eye","Eye Protection"], ["ppe_hearing","Hearing Protection"],
+      ["ppe_sunscreen","Sunscreen"], ["ppe_reflective","Reflective Vest"],
+      ["ppe_face_shield","Face Shield"], ["ppe_respirator","Respirator"],
+      ["ppe_fall_arr","Fall Arrest"], ["ppe_sat_phone","Sat Phone"],
+      ["ppe_bear_spray","Bear Spray"], ["ppe_first_aid","First Aid Kit"],
+    ];
+    const ppePerRow = 5, ppeCW = CW / ppePerRow, ppeRowH = 6.5;
+    for (let i = 0; i < ALL_PPE.length; i += ppePerRow) {
+      ALL_PPE.slice(i, i + ppePerRow).forEach(([key, label], j) => {
+        const checked = cb(key);
+        const xi = L + j * ppeCW;
+        cbox(checked, xi + 1, y + 0.8, 3.2);
+        F("normal", 7.5, checked ? P.text : P.muted);
+        pdf.text(label, xi + 5.8, y + 3.4);
+      });
+      y += ppeRowH;
+    }
+    // Custom PPE if filled in
+    const ppeOtherEl2 = document.querySelector('input[name="ppe_other_desc"]');
+    if (cb("ppe_other") && ppeOtherEl2?.value?.trim()) {
+      cbox(true, L + 1, y + 0.8, 3.2);
+      F("normal", 7.5, P.text); pdf.text(ppeOtherEl2.value.trim(), L + 5.8, y + 3.4);
+      y += ppeRowH;
     }
     hline(y); y += 3;
 
